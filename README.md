@@ -1,73 +1,51 @@
 # CNKlabs AI Image Generation
 
-MVP frontend for the CNKlabs AI Image Generation portfolio project.
+CNKlabs AI Image Generation is a React/Vite web app with a Portrait Studio and a server-side AI provider layer designed for Netlify deployment.
 
-## Run
-npm install
-npm run dev
+## Current architecture
 
-## Build
-npm run build
+`Browser → Netlify Function → Hugging Face Inference Providers → AI model → image result`
 
-The current MVP uses a demo image engine so the UI can be tested without an API key.
-The generation layer is intentionally isolated so a real provider can be connected later.
+The browser never receives `HF_TOKEN`. Netlify Functions read the secret from server-side environment variables.
 
+## Features
 
-## Portrait Presets
-The MVP includes dedicated prompt presets for:
-- Foto Siswa
-- Foto Formal Pria dengan jas
-- Foto Formal Wanita dengan jas
+- Text-to-image generation
+- Portrait Studio: Foto Siswa, Formal Pria, Formal Wanita
+- SD/SMP/SMA portrait options
+- Uniform, suit, tie, clothing, background and photo-size options
+- Optional reference photo for image+text-to-image workflows
+- Aspect ratios and quality controls
+- Local Gallery/History for the MVP
+- Demo fallback when no provider token is configured
+- Provider/model selection through server environment variables
+- Netlify Function API at `/api/generate-image`
 
-These presets are prompt-layer features; the current demo engine remains image-provider independent.
+## Hugging Face provider setup
 
-## Portrait Studio v1
+The app uses the official `@huggingface/inference` JavaScript client. Hugging Face documents Inference Providers as a unified way to call supported models through serverless inference partners, and recommends keeping tokens private/server-side.
 
-Portrait Studio now includes dedicated portrait flows:
+Set these variables in **Netlify → Project configuration → Environment variables**:
 
-- Foto Siswa: SD, SMP, SMA
-- Seragam sekolah dengan opsi warna/tingkat dan dasi
-- Foto Formal Pria: beberapa pilihan jas dan dasi
-- Foto Formal Wanita: beberapa pilihan blazer/setelan
-- Upload foto referensi (fondasi untuk image-to-image/provider nyata)
-- Background studio
-- Ukuran foto 4x6, 3x4, 1:1, dan portrait
-- Prompt adaptif berdasarkan seluruh pilihan portrait
+- `HF_TOKEN` — Hugging Face access token with Inference Providers permission.
+- `HF_PROVIDER` — default `auto`.
+- `HF_TEXT_MODEL` — default `Qwen/Qwen-Image`.
+- `HF_IMAGE_MODEL` — default `black-forest-labs/FLUX.2-dev` for image+text-to-image.
 
-## Monetization foundation
+Model/provider availability and pricing can change. If a selected model is not available through the selected provider, change the model/provider variables rather than changing the UI.
 
-The MVP includes a product/plan foundation:
+## Important billing note
 
-- Free: maximum 15 generated photos per month
-- 1 Month plan placeholder
-- 1 Year plan placeholder
-- Plan modal and monthly usage indicator
+Hugging Face Inference Providers is pay-as-you-go with a free tier/credit system, not unlimited free inference. Check the current account credit and model/provider pricing before repeated generation. The local 15-photo UI limit is only an MVP guard; commercial quota enforcement must eventually move to a server-side database tied to authenticated users and subscriptions.
 
-The 15-photo limit in this MVP is local-only for prototyping. Before commercial launch, usage, account identity, subscriptions, payment status, and quota enforcement must move to a server/backend so users cannot reset the quota by clearing browser storage.
+## Deployment
 
-## Important current limitation
+- Build command: `npm run build`
+- Publish directory: `dist`
+- Functions directory: `netlify/functions`
 
-The current demo engine still uses demo images. Portrait Studio collects the real generation parameters and optional reference image, but it does not yet perform real AI image-to-image generation. The next engineering stage is to add a secure provider API/backend while keeping this UI unchanged.
+After changing environment variables, trigger a new Netlify deploy.
 
+## Security
 
-## AI Provider Layer v1
-
-Portrait Studio v1 sekarang memiliki endpoint server-side `/.netlify/functions/generate-image` melalui redirect `/api/generate-image`. Frontend tidak menyimpan API key. Netlify Functions membaca secret dari environment variable, sesuai pola server-side secrets Netlify.
-
-### Hugging Face setup
-
-Set environment variable di Netlify Functions: `HF_TOKEN`. Opsional untuk text-to-image: `HF_TEXT_ENDPOINT`. Untuk image-to-image/reference photo: `HF_IMAGE_ENDPOINT` dapat diarahkan ke endpoint provider/model yang mendukung task image-to-image. Hugging Face saat ini mendokumentasikan text-to-image dan image-to-image melalui Inference Providers, dengan model/provider yang dapat berubah; karena itu endpoint dibuat configurable agar UI CNKlabs tidak terkunci pada satu provider.
-
-Tanpa `HF_TOKEN`, aplikasi otomatis memakai Demo Engine sebagai fallback. Ini memungkinkan UI tetap dapat diuji sebelum provider dikonfigurasi.
-
-### Deployment
-
-1. Upload repository ke GitHub.
-2. Import repository ke Netlify.
-3. Build command: `npm run build`.
-4. Publish directory: `dist`.
-5. Pastikan Functions directory: `netlify/functions`.
-6. Tambahkan `HF_TOKEN` pada Netlify Environment Variables dengan scope Functions.
-7. Redeploy setelah mengubah environment variable.
-
-**Catatan:** batas 15 foto/bulan masih merupakan fondasi MVP berbasis browser. Untuk produk berbayar, kuota harus dipindahkan ke database/backend bersama autentikasi pengguna dan payment gateway sehingga tidak dapat di-reset dengan menghapus localStorage.
+Never put `HF_TOKEN` in `VITE_*` variables, frontend source code, GitHub commits, or the browser. The `.env.example` file contains placeholders only.

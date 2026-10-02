@@ -178,30 +178,31 @@ function App() {
         })
       });
       const data = await response.json().catch(() => ({}));
+
       if (response.ok && data.imageData) {
         const item = buildGeneratedItem(data.imageData, data.provider || "AI Provider");
         setResult(item);
         setGallery(prev => [item, ...prev].slice(0, 4));
         recordUsage();
-        setProviderMessage("AI provider aktif — hasil dibuat oleh mesin AI nyata.");
+        setProviderMessage(`AI nyata aktif · ${data.model || "model provider"}${data.mode === "image-to-image" ? " · reference photo" : " · text-to-image"}`);
         return;
       }
-      if (data?.error && data.configured) {
-        setProviderMessage(`Provider belum siap: ${data.error}`);
+
+      if (data?.configured) {
+        setProviderMessage(`AI provider gagal: ${data.error || "Tidak ada detail error."}`);
+        return;
       }
-      await new Promise(resolve => setTimeout(resolve, 700));
+
+      // No server-side token yet: keep the demo fallback usable without pretending it is AI.
+      await new Promise(resolve => setTimeout(resolve, 500));
       const demo = demoImages[Math.floor(Math.random() * demoImages.length)];
       const item = buildGeneratedItem(demo.src, "Demo Engine (fallback)");
       setResult({ ...item, title: demo.title });
       setGallery(prev => [item, ...prev].slice(0, 4));
       recordUsage();
+      setProviderMessage("Mode demo aktif · pasang HF_TOKEN di Netlify untuk mengaktifkan AI nyata.");
     } catch (error) {
-      setProviderMessage("Backend AI belum tersedia. Demo Engine digunakan sebagai fallback.");
-      const demo = demoImages[Math.floor(Math.random() * demoImages.length)];
-      const item = buildGeneratedItem(demo.src, "Demo Engine (fallback)");
-      setResult({ ...item, title: demo.title });
-      setGallery(prev => [item, ...prev].slice(0, 4));
-      recordUsage();
+      setProviderMessage(`Koneksi ke backend AI gagal: ${error?.message || "Unknown error"}`);
     } finally {
       setGenerating(false);
     }
@@ -209,8 +210,28 @@ function App() {
 
   const handleReference = (file) => {
     if (!file) return;
+    if (!file.type.startsWith("image/")) return;
+    if (file.size > 8 * 1024 * 1024) {
+      setProviderMessage("Foto referensi terlalu besar. Pilih foto maksimal 8 MB.");
+      return;
+    }
+
     const reader = new FileReader();
-    reader.onload = () => setReferenceImage({ name: file.name, data: reader.result });
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const maxSide = 1536;
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const compressed = canvas.toDataURL("image/jpeg", 0.82);
+        setReferenceImage({ name: file.name, data: compressed });
+      };
+      img.src = reader.result;
+    };
     reader.readAsDataURL(file);
   };
 
